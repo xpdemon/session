@@ -6,13 +6,19 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"github.com/xpdemon/session/cache"
+	"github.com/xpdemon/session/key"
 	"io"
 	"strings"
 )
 
-var secretKey = []byte("DQqjm8uFWaqXmtfO4uqil-4Lf323JUxkh6V9FaIFoKo")
+// RenewKey renouvelle la clé de signature
+func RenewKey(cache *cache.Cache) {
+	k := key.Generate()
+	cache.Set("secretKey", k)
+}
 
-// GenerateId génère un ID de session aléatoire.
+// GenerateSessionID génère un ID de session aléatoire.
 func GenerateSessionID(length int) (string, error) {
 	// On génère length octets aléatoires
 	buf := make([]byte, length)
@@ -27,7 +33,9 @@ func GenerateSessionID(length int) (string, error) {
 }
 
 // SignID calcule la signature HMAC d'un ID et renvoie "ID:Signature"
-func SignID(sessionID string) string {
+func SignID(sessionID string, cache *cache.Cache) string {
+	secretKey := getSecretKey(cache)
+
 	h := hmac.New(sha256.New, secretKey)
 	h.Write([]byte(sessionID))
 	signature := h.Sum(nil)
@@ -38,7 +46,9 @@ func SignID(sessionID string) string {
 }
 
 // ValidateSignedID vérifie la signature du session_id
-func ValidateSignedID(signedValue string) (string, error) {
+func ValidateSignedID(signedValue string, cache *cache.Cache) (string, error) {
+	secretKey := getSecretKey(cache)
+
 	parts := strings.Split(signedValue, ":")
 	if len(parts) != 2 {
 		return "", fmt.Errorf("format session invalide")
@@ -53,7 +63,7 @@ func ValidateSignedID(signedValue string) (string, error) {
 		return "", fmt.Errorf("signature base64 invalide")
 	}
 
-	// Recalcul de la signature
+	// Re-calcul de la signature
 	h := hmac.New(sha256.New, secretKey)
 	h.Write([]byte(sessionID))
 	expectedSig := h.Sum(nil)
@@ -65,4 +75,15 @@ func ValidateSignedID(signedValue string) (string, error) {
 
 	// Signature valide, retourne le sessionID
 	return sessionID, nil
+}
+
+func getSecretKey(cache *cache.Cache) []byte {
+	secretKey, ok := cache.Get("secretKey")
+
+	if !ok {
+		secretKey = key.Generate()
+		cache.Set("secretKey", secretKey)
+	}
+
+	return []byte(secretKey)
 }
