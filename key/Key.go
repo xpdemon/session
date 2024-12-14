@@ -21,7 +21,7 @@ func Generate() string {
 
 	// Encodage base64 pour stockage plus facile
 	keyBase64 := base64.RawURLEncoding.EncodeToString(key)
-	fmt.Println("Clé secrète générée (base64) :", keyBase64)
+	fmt.Println("Clé secrète générée")
 
 	return keyBase64
 }
